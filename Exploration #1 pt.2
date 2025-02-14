@@ -1,0 +1,32 @@
+#include <FEHUtility.h>
+#include <FEHServo.h>
+#include <FEHLCD.h>
+#include <FEHIO.h>
+
+
+FEHServo servo(FEHServo::Servo7); // declare servo arm
+#define SERVO_MIN 500
+#define SERVO_MAX 2270
+AnalogInputPin CdS_cell(FEHIO::P3_0);
+
+int main(void) 
+{ 
+    servo.SetMin(SERVO_MIN);
+    servo.SetMax(SERVO_MAX);
+
+    while (1)
+    {
+        float x = CdS_cell.Value();
+
+        float y=(3.25-x)*60;
+
+        servo.SetDegree(y);
+        LCD.Write(x);
+
+        Sleep(100);
+        LCD.Clear();
+        
+    }
+
+
+}
