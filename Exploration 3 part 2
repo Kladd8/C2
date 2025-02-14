@@ -8,7 +8,8 @@ DigitalEncoder right_encoder(FEHIO::P0_0);
 DigitalEncoder left_encoder(FEHIO::P0_1);
 FEHMotor right_motor(FEHMotor::Motor2,9.0);
 FEHMotor left_motor(FEHMotor::Motor1,9.0);
-
+void turn_right(int,int);
+void turn_left(int,int);
 void move_forward(int percent, int counts) //using encoders
 {
     //Reset encoder counts
@@ -31,7 +32,7 @@ void move_forward(int percent, int counts) //using encoders
 int main(void)
 {
     int motor_percent = 25; //Input power level here
-    int expected_counts = 243; //Input theoretical counts here
+    int expected_counts = 567; //Input theoretical counts here
 
     float x, y; //for touch screen
 
@@ -45,6 +46,15 @@ int main(void)
     while(LCD.Touch(&x,&y)); //Wait for screen to be unpressed
 
     move_forward(motor_percent, expected_counts); //see function
+    
+
+    turn_left(motor_percent,223);
+    Sleep(1000);
+    move_forward(motor_percent, 405);
+    Sleep(1000);
+    turn_right(motor_percent,223);
+    Sleep(1000);
+    move_forward(motor_percent, 162);
 
     Sleep(2.0); //Wait for counts to stabilize
     //Print out data
@@ -60,3 +70,45 @@ int main(void)
     return 0;
 }
 
+void turn_right(int percent, int counts) //using encoders
+{ 
+ //Reset encoder counts
+    
+    right_encoder.ResetCounts();
+    left_encoder.ResetCounts();
+    
+    
+ //Set both motors to desired percent
+    right_motor.SetPercent(percent);
+    left_motor.SetPercent(-percent);
+ //hint: set right motor backwards, left motor forwards
+ //<ADD CODE HERE>
+
+
+ //While the average of the left and right encoder is less than counts,
+ //keep running motors
+    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);
+ //<ADD CODE HERE>
+ //Turn off motors
+    right_motor.Stop();
+    left_motor.Stop();
+}
+void turn_left(int percent, int counts) //using encoders
+{
+ //Reset encoder counts
+   
+    right_encoder.ResetCounts();
+    left_encoder.ResetCounts();
+    
+ //Set both motors to desired percent
+    right_motor.SetPercent(-percent);
+    left_motor.SetPercent(percent);
+ //<ADD CODE HERE>
+ //While the average of the left and right encoder is less than counts,
+ //keep running motors
+ //<ADD CODE HERE>
+    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);
+ //Turn off motors
+    right_motor.Stop();
+    left_motor.Stop();
+}
