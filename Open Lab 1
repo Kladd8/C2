@@ -1,0 +1,276 @@
+#include <FEHLCD.h>
+#include <FEHIO.h>
+#include <FEHMotor.h>
+#include <math.h>
+#include <FEHBattery.h>
+#include <FEHUtility.h>
+#include <FEHServo.h>
+
+//Declarations for encoders & motors
+FEHMotor left_motor(FEHMotor::Motor1, 9.0);
+FEHMotor right_motor(FEHMotor::Motor2, 9.0);
+DigitalEncoder right_encoder(FEHIO::P0_0);
+DigitalEncoder left_encoder(FEHIO::P0_1);
+
+//Delcare CdS cell
+AnalogInputPin CdS_cell(FEHIO::P3_0);
+
+//Declare optosensors
+AnalogInputPin right_opto(FEHIO::P2_0);
+AnalogInputPin middle_opto(FEHIO::P2_1);
+AnalogInputPin left_opto(FEHIO::P2_2);
+
+//Declare Servo Arm
+FEHServo arm_servo(FEHServo::Servo3);
+
+//Define Servo Min/Max
+#define SERVO_MIN 500
+#define SERVO_MAX 2371
+
+//Declare threshold values
+#define nolight_low 3.0
+#define nolight_high 3.5
+#define redlight_low .85
+#define redlight_high 1.0
+#define bluelight_low 1.05
+#define bluelight_high 1.25
+
+//Declare movement functions
+void move_forwardlow(int,int);
+void move_backward(int,int);
+void turn_right(int,int);
+void turn_left(int,int);
+void line_follow(float, float, float);
+
+//Define line states
+enum LineStates
+{
+    MIDDLE,
+    RIGHT,
+    LEFT
+};
+
+//Define sensor thresholds
+float lowthreshold = 1.3;
+float highthreshold=3;
+
+int main(void)
+{
+    float CdS_value = CdS_cell.Value(); //Define CdS cell value
+
+    float RO = right_opto.Value(); //Define opto sensor values
+    float MO = middle_opto.Value();
+    float LO = left_opto.Value();
+    arm_servo.SetMin(SERVO_MIN);
+    arm_servo.SetMax(SERVO_MAX);
+    arm_servo.SetDegree(0.);
+
+    //Wait for start light
+    while(CdS_value >= nolight_low)
+    {
+        CdS_value = CdS_cell.Value();
+    }
+
+    //Turn out of starting location and line up with ramp
+    move_backward(25,30);
+    Sleep(1.0);
+
+    turn_right(25,65);
+    Sleep(1.0);
+
+    move_backward(30,800);
+    Sleep(1.0);
+
+    turn_right(25,130);
+    Sleep(1.0);
+
+    //arm_servo.SetDegree(100.);
+    Sleep(3.0);
+        //Drive foward onto light
+    
+    //move_forwardlow(25,100);
+
+        //Sense light color and turn correct direction
+    CdS_value=CdS_cell.Value();
+    if (CdS_value > redlight_low && CdS_value < redlight_high)
+    {
+            turn_right(25,100);
+            move_forwardlow(25,40);
+    }
+    else if (CdS_value > bluelight_low && CdS_value < bluelight_high)
+    {
+            turn_left(25,100);
+            move_forwardlow(25,40);
+    }
+    
+        //Follow line to straighten
+            //Reset encoder counts
+    right_encoder.ResetCounts();
+    left_encoder.ResetCounts();
+    int counts = 45;
+    
+    while ((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts)
+    {
+            RO = right_opto.Value(); //Continue to check values
+            MO = middle_opto.Value();
+            LO = left_opto.Value();
+            line_follow(RO, MO, LO);
+    }
+    
+
+/*
+    //Drive foward until line is sensed
+    while (LO < lowthreshold && RO < lowthreshold && MO < lowthreshold)
+    {
+        move_forwardlow(25,1);
+
+        RO = right_opto.Value(); //Continue to check values
+        MO = middle_opto.Value();
+        LO = left_opto.Value();
+    }
+
+    Sleep(2.0);
+
+    //Follow line until no longer on line
+    while (LO > lowthreshold || RO > lowthreshold || MO > lowthreshold)
+    {
+        line_follow(RO,MO,LO);
+        RO = right_opto.Value(); //Continue to check values
+        MO = middle_opto.Value();
+        LO = left_opto.Value();
+    }
+
+
+    //back up?
+
+    //Push button
+
+    */
+}
+
+//Define move foward low speed function
+void move_forwardlow(int percent, int counts)
+{
+    //Reset encoder counts
+    right_encoder.ResetCounts();
+    left_encoder.ResetCounts();
+
+    //Set both motors to desired percent
+    right_motor.SetPercent(percent);
+    left_motor.SetPercent(percent);
+
+    //While the average of the left and right encoder is less than counts, keep running motors
+    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);
+
+    //Stop motors
+    right_motor.Stop();
+    left_motor.Stop();
+}
+
+//Define move backward function
+void move_backward(int percent, int counts)
+{
+    //Reset encoder counts
+    right_encoder.ResetCounts();
+    left_encoder.ResetCounts();
+
+    //Set both motors to desired percent
+    right_motor.SetPercent(-percent);
+    left_motor.SetPercent(-percent);
+
+    //While the average of the left and right encoder is less than counts, keep running motors
+    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);
+
+    //Stop motors
+    right_motor.Stop();
+    left_motor.Stop();
+}
+
+
+//Define turn right function
+void turn_right(int percent, int counts)
+{
+    //Reset encoder counts
+    right_encoder.ResetCounts();
+    left_encoder.ResetCounts();
+
+    //Set both motors to desired percent
+    right_motor.SetPercent(percent);
+    left_motor.SetPercent(-percent-3);
+
+    //While the average of the left and right encoder is less than counts, keep running motors
+    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);
+
+    //Stop motors
+    right_motor.Stop();
+    left_motor.Stop();
+}
+
+//Define turn left function
+void turn_left (int percent, int counts)
+{
+    //Reset encoder counts
+    right_encoder.ResetCounts();
+    left_encoder.ResetCounts();
+
+    //Set both motors to desired percent
+    right_motor.SetPercent(-percent);
+    left_motor.SetPercent(percent+3);
+
+    //While the average of the left and right encoder is less than counts, keep running motors
+    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);
+
+    //Stop motors
+    right_motor.Stop();
+    left_motor.Stop();
+}
+
+void line_follow(float RO, float MO, float LO)
+{
+        int state = MIDDLE; // Set the initial state
+
+        switch (state)
+        {
+        case MIDDLE: // If robot is in the middle of the line drive straight
+            left_motor.SetPercent(20);
+            right_motor.SetPercent(20);
+
+            // If right sensor is on the line update state to right
+            if (RO >= lowthreshold && RO <= highthreshold)
+            {
+                state = RIGHT;
+            }
+
+            // If left sensor is on the line update state to left
+            if (LO >= lowthreshold && LO <= highthreshold)
+            {
+                state = LEFT;
+            }
+            break;
+
+        case RIGHT: // If right sensor is on line turn right until sensor is off line
+            left_motor.SetPercent(20);
+            right_motor.SetPercent(5);
+
+            if (RO <= lowthreshold || RO >= highthreshold)
+            {
+                state = MIDDLE;
+            }
+
+            break;
+
+        case LEFT: // If left sensor is on line turn left until sensor is off line
+            left_motor.SetPercent(5);
+            right_motor.SetPercent(20);
+
+            if (LO <= lowthreshold || LO >= highthreshold)
+            {
+                state = MIDDLE;
+            }
+
+            break;
+
+        default: // Error. Something is very wrong.
+            break;
+        }
+}
